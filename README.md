@@ -5,7 +5,7 @@ Employee Performance Predictor
 "Streamlit" (https://img.shields.io/badge/Streamlit-App-red)
 "Status" (https://img.shields.io/badge/Status-Completed-brightgreen)
 
-🔗 Live Demo (Streamlit): https://your-streamlit-link-here
+
 
 
 
@@ -51,25 +51,38 @@ This project provides a data-driven solution that:
 
 
 
-## Visualization Preview
+## 📈 Data Analysis & Model Results
 
 
-"Dashboard" (images/dashboard_home.png)
-"Performance Chart" (images/performance_chart.png)
-"Feature Importance" (images/feature_importance.png)
+
+![Performance Distribution](outputs/images/performance_distribution.png)
+
+
+
+![Salary Distribution](outputs/images/salary_distribution.png)
+
+
+
+![Training vs Performance](outputs/images/training_hours_vs_performance_boxplot.png)
+
+
+
+![Model Prediction Output](outputs/images/model_prediction_output.png)
+
+
 
 
 
 
 ## Sample Output
 
+
 The system generates predictions along with actionable insights for each employee:
+
 
 - Predicted Performance (High / Medium / Low)
 - HR Recommendation based on performance
 - Downloadable results file (CSV format)
-
-
 
 
 
@@ -121,6 +134,25 @@ Employee-Performance-Predictor/
 ├── main.py
 ├── requirements.txt
 └── README.md
+
+
+## 📊 Dashboard Preview
+
+
+
+![Dashboard Home](outputs/images/dashboard.png)
+
+
+
+![Prediction Results](outputs/images/dashboard_prediction_results.png)
+
+
+
+![Dashboard Insights](outputs/images/dashboard_insights.png)
+
+
+
+![HR Recommendations](outputs/images/dashboard_hr_recommendation.png)
 
 
 

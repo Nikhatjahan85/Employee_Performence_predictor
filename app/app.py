@@ -1,78 +1,158 @@
 import streamlit as st
 import pandas as pd
 import joblib
+import os
 import matplotlib.pyplot as plt
+import seaborn as sns
 
-st.set_page_config(page_title="Employee Performance Dashboard", layout="wide")
+# -------------------------------
+# PAGE CONFIG
+# -------------------------------
+st.set_page_config(page_title="Employee Dashboard", layout="wide")
+
+# -------------------------------
+# CUSTOM CSS (PREMIUM UI)
+# -------------------------------
+st.markdown("""
+<style>
+.main {
+    background-color: #0E1117;
+    color: white;
+}
+.metric-card {
+    background-color: #1c1f26;
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+}
+</style>
+""", unsafe_allow_html=True)
 
 st.title("📊 Employee Performance Analytics Dashboard")
 
-# Load model
-model = joblib.load("../models/model.pkl")
+# -------------------------------
+# LOAD MODEL
+# -------------------------------
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+model_path = os.path.join(BASE_DIR, "models", "model.pkl")
 
-# Upload file
-uploaded_file = st.file_uploader("📁 Upload Employee CSV", type=["csv"])
+if not os.path.exists(model_path):
+    st.error("❌ Run main.py first to generate model.pkl")
+    st.stop()
 
-if uploaded_file is not None:
+model = joblib.load(model_path)
+
+# -------------------------------
+# SIDEBAR
+# -------------------------------
+st.sidebar.header("⚙ Controls")
+uploaded_file = st.sidebar.file_uploader("Upload CSV", type=["csv"])
+
+# -------------------------------
+# MAIN LOGIC
+# -------------------------------
+if uploaded_file:
+
     df = pd.read_csv(uploaded_file)
 
-    st.subheader("📋 Uploaded Data")
-    st.dataframe(df.head())
+    st.subheader("📄 Uploaded Data")
+    st.dataframe(df, use_container_width=True)
 
-    # Preprocess
-    if 'performance' in df.columns:
-        X = df.drop('performance', axis=1)
-    else:
-        X = df.copy()
+    # -------------------------------
+    # FILTERS
+    # -------------------------------
+    st.sidebar.subheader("🔍 Filters")
 
-    X_encoded = pd.get_dummies(X, drop_first=True)
+    if "department" in df.columns:
+        dept = st.sidebar.multiselect("Department", df["department"].unique(), default=df["department"].unique())
+        df = df[df["department"].isin(dept)]
 
-    # Align columns (important fix)
-    model_features = model.feature_names_in_
-    for col in model_features:
-        if col not in X_encoded.columns:
-            X_encoded[col] = 0
+    if "salary" in df.columns:
+        min_sal, max_sal = int(df["salary"].min()), int(df["salary"].max())
+        sal_range = st.sidebar.slider("Salary Range", min_sal, max_sal, (min_sal, max_sal))
+        df = df[(df["salary"] >= sal_range[0]) & (df["salary"] <= sal_range[1])]
 
-    X_encoded = X_encoded[model_features]
+    # -------------------------------
+    # PREPROCESS
+    # -------------------------------
+    df_copy = df.copy()
 
-    # Prediction
-    predictions = model.predict(X_encoded)
-    df['Predicted Performance'] = predictions
+    if "performance" in df_copy.columns:
+        df_copy = df_copy.drop("performance", axis=1)
 
-    st.subheader("📊 Prediction Results")
-    st.dataframe(df)
+    df_processed = pd.get_dummies(df_copy, drop_first=True)
 
-    # 🔥 Chart 1: Performance Distribution
-    st.subheader("📈 Performance Distribution")
-    fig1, ax1 = plt.subplots()
-    df['Predicted Performance'].value_counts().plot(kind='bar', ax=ax1)
-    st.pyplot(fig1)
+    try:
+        df_processed = df_processed.reindex(columns=model.feature_names_in_, fill_value=0)
+    except:
+        pass
 
-    # 🔥 Chart 2: Feature Importance
-    st.subheader("📊 Feature Importance")
+    # -------------------------------
+    # PREDICTIONS
+    # -------------------------------
+    predictions = model.predict(df_processed)
+    df["Predicted Performance"] = predictions
 
-    importances = model.feature_importances_
-    features = model.feature_names_in_
+    # -------------------------------
+    # KPI CARDS
+    # -------------------------------
+    st.subheader("📊 Key Metrics")
 
-    fig2, ax2 = plt.subplots()
-    ax2.barh(features, importances)
-    st.pyplot(fig2)
+    col1, col2, col3 = st.columns(3)
 
-    # 🔥 HR Recommendations
-    st.subheader("🧠 HR Recommendations")
+    col1.metric("👥 Total Employees", len(df))
+    col2.metric("💰 Avg Salary", f"{int(df['salary'].mean())}")
+    col3.metric("📈 Avg Experience", f"{round(df['experience'].mean(),1)} yrs")
 
-    def recommendation(row):
-        if row['Predicted Performance'] == 0:
-            return "⚠️ Needs training & monitoring"
-        elif row['Predicted Performance'] == 1:
-            return "📚 Moderate improvement required"
+    # -------------------------------
+    # PREDICTION TABLE
+    # -------------------------------
+    st.subheader("🔮 Prediction Results")
+    st.dataframe(df, use_container_width=True)
+
+    # -------------------------------
+    # VISUALS
+    # -------------------------------
+    st.subheader("📈 Insights")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        fig1, ax1 = plt.subplots()
+        sns.histplot(df["salary"], kde=True, ax=ax1)
+        st.pyplot(fig1)
+
+    with col2:
+        fig2, ax2 = plt.subplots()
+        sns.countplot(x="Predicted Performance", data=df, ax=ax2)
+        st.pyplot(fig2)
+
+    # -------------------------------
+    # HR RECOMMENDATION
+    # -------------------------------
+    st.subheader("🧠 HR Insights")
+
+    def recommendation(p):
+        if p == 0:
+            return "⚠ Needs Training"
+        elif p == 1:
+            return "🟡 Moderate Performer"
         else:
-            return "🏆 Eligible for promotion"
+            return "🟢 High Performer"
 
-    df['Recommendation'] = df.apply(recommendation, axis=1)
+    df["Recommendation"] = df["Predicted Performance"].apply(recommendation)
 
-    st.dataframe(df[['Predicted Performance', 'Recommendation']])
+    st.dataframe(df[["Predicted Performance", "Recommendation"]])
 
-    # Download
-    csv = df.to_csv(index=False).encode('utf-8')
-    st.download_button("⬇️ Download Results", csv, "results.csv", "text/csv")
+    # -------------------------------
+    # DOWNLOAD
+    # -------------------------------
+    st.download_button(
+        "⬇ Download Results",
+        df.to_csv(index=False),
+        "predictions.csv",
+        "text/csv"
+    )
+
+else:
+    st.info("👈 Upload employee dataset to start analysis")
